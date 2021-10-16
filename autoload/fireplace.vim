@@ -192,7 +192,7 @@ function! s:candidate(val) abort
         \ }
 endfunction
 
-function! s:get_complete_context() abort
+function! s:internal_get_complete_context() abort
   " Find toplevel form
   " If cursor is on start parenthesis we don't want to find the form
   " If cursor is on end parenthesis we want to find the form
@@ -222,6 +222,14 @@ function! s:get_complete_context() abort
 
   return strpart(expr, 0, p) . ' __prefix__ ' . strpart(expr, p)
 endfunction
+
+if has('nvim-0.5')
+  let s:lua_impl = luaeval("require'_fireplace'")
+else
+  let s:lua_impl = {}
+endif
+
+let s:get_complete_context = get(s:lua_impl, 'get_completion_context', function('s:internal_get_complete_context'))
 
 function! s:complete_extract(msg) abort
   let trans = '{"word": (v:val =~# ''[./]'' ? "" : matchstr(a:base, ''^.\+/'')) . v:val}'
