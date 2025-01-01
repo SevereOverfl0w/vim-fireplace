@@ -2081,7 +2081,7 @@ function! s:set_up_source() abort
 
   call s:map('n', '<C-]>',         '<Plug>FireplaceTag')
   call s:map('n', 'g<LeftMouse>',  '<Plug>FireplaceTag')
-  call s:map('n', '<C LeftMouse>', '<Plug>FireplaceTag')
+  call s:map('n', '<C-LeftMouse>', '<Plug>FireplaceTag')
   call s:map('n', 'g]',            '<Plug>FireplaceTselect')
   call s:map('n', 'g<C-]>',        '<Plug>FireplaceTjump')
   call s:map('n', '<C-W>]',        '<Plug>FireplaceStag')
