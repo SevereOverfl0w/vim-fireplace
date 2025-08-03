@@ -1502,6 +1502,8 @@ endfunction
 let fireplace#skip = 'synIDattr(synID(line("."),col("."),1),"name") =~? "comment\\|string\\|char\\|regexp"'
 
 function! s:opfunc(type) abort
+  let context_mark_save = getpos("'`")
+  let context_line_save = getpos("''")
   let sel_save = &selection
   let cb_save = &clipboard
   let reg_save = @@
@@ -1538,6 +1540,8 @@ function! s:opfunc(type) abort
     redraw
     return {'code': @@, 'file': s:buffer_path(), 'line': line("'<"), 'column': col("'<")}
   finally
+    call setpos("'`", context_mark_save)
+    call setpos("''", context_line_save)
     let @@ = reg_save
     let &selection = sel_save
     let &clipboard = cb_save
