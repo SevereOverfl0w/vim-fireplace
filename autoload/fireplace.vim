@@ -1581,15 +1581,47 @@ function! s:printop(type) abort
   call feedkeys("\<Plug>FireplacePrintLast")
 endfunction
 
-function! s:add_pprint_opts(msg, width) abort
-  let a:msg['nrepl.middleware.print/stream?'] = 1
+function! fireplace#pprint_puget(msg, width, ...)
   if fireplace#op_available('info')
-    let a:msg['nrepl.middleware.print/print'] = 'cider.nrepl.pprint/fipp-pprint'
-    let a:msg['nrepl.middleware.print/options'] = {}
+    let a:msg['nrepl.middleware.print/print'] = 'cider.nrepl.pprint/puget-pprint'
+    if a:0
+      let a:msg['nrepl.middleware.print/options'] = a:1
+    else
+      let a:msg['nrepl.middleware.print/options'] = {}
+    endif
     if a:width > 0
       let a:msg['nrepl.middleware.print/options'].width = a:width
     endif
   endif
+endfunction
+
+function! fireplace#pprint_fipp(msg, width, ...)
+  if fireplace#op_available('info')
+    let a:msg['nrepl.middleware.print/print'] = 'cider.nrepl.pprint/fipp-pprint'
+    if a:0
+      let a:msg['nrepl.middleware.print/options'] = a:1
+    else
+      let a:msg['nrepl.middleware.print/options'] = {}
+    endif
+    if a:width > 0
+      let a:msg['nrepl.middleware.print/options'].width = a:width
+    endif
+  endif
+endfunction
+
+function! s:add_pprint_opts(msg, width) abort
+  let a:msg['nrepl.middleware.print/stream?'] = 1
+  if exists('*g:Fireplace_pprint_func')
+    let func = get(g:, 'Fireplace_pprint_func')
+    if type(func) == v:t_func
+      let Pprint = func
+    else
+      let Pprint = function('g:Fireplace_pprint_func')
+    endif
+  else
+    let Pprint = function(get(g:, 'Fireplace_pprint_func', 'fireplace#pprint_fipp'))
+  endif
+  call Pprint(a:msg, a:width)
   return a:msg
 endfunction
 
