@@ -1616,9 +1616,9 @@ endfunction
 function! s:add_pprint_opts(msg, width) abort
   let a:msg['nrepl.middleware.print/stream?'] = 1
   if exists('*g:Fireplace_pprint_func')
-    let func = get(g:, 'Fireplace_pprint_func')
-    if type(func) == v:t_func
-      let Pprint = func
+    let Func = get(g:, 'Fireplace_pprint_func')
+    if type(Func) == v:t_func
+      let Pprint = Func
     else
       let Pprint = function('g:Fireplace_pprint_func')
     endif
