@@ -2559,6 +2559,11 @@ function! s:handle_test_response(buffer, id, path, expr, bang, message) abort
   endif
 endfunction
 
+function! fireplace#run_test_expr(expr, bang, ...) abort
+  let pre = get(a:000, 0, '')
+  call s:capture_test_run(a:expr, pre, a:bang)
+endfunction
+
 function! s:RunTests(bang, count, ...) abort
   if &autowrite || &autowriteall
     silent! wall
@@ -2606,6 +2611,9 @@ function! s:set_up_tests() abort
         \ call s:RunTests(<bang>0, <line1> == 0 ? -1 : <count>, <f-args>)
   command! -buffer -bang -nargs=* RunAllTests
         \ call s:RunTests(<bang>0, -1, <f-args>)
+  command! -buffer -bang -nargs=*
+        \ -complete=customlist,fireplace#eval_complete RunTestExpr
+        \ call fireplace#run_test_expr(<q-args>, <bang>0)
 endfunction
 
 " Section: Activation
