@@ -1,4 +1,4 @@
-local fireplace_impl = {[vim.type_idx]=vim.types.dictionary}
+local fireplace_impl = {[vim.type_idx] = vim.types.dictionary}
 
 if vim.treesitter then
   local has_ts, ts = pcall(require, 'nvim-treesitter.ts_utils')
@@ -20,8 +20,8 @@ if vim.treesitter then
 
       if root_node ~= nil then
         local strs = ts.get_node_text(root_node)
-        local nrow1,ncol1,nline2,ncol2 = root_node:range()
-        local crow,ccol = unpack(vim.api.nvim_win_get_cursor(0))
+        local nrow1, ncol1, nline2, ncol2 = root_node:range()
+        local crow, ccol = unpack(vim.api.nvim_win_get_cursor(0))
 
         local idx = crow - nrow1
         local line = strs[idx]
