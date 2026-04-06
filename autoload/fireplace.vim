@@ -1982,6 +1982,14 @@ function! fireplace#info(symbol) abort
     elseif has_key(response, 'file') || has_key(response, 'doc')
       return response
     endif
+  elseif s:impl_ns() ==# 'cljs'
+    let err = s:op_missing_error('info', 'cider-nrepl')
+    if len(err)
+      echohl ErrorMSG
+      echo err
+      echohl None
+      return {}
+    endif
   endif
 
   let sym = s:qsym(a:symbol)
@@ -2413,7 +2421,9 @@ function! s:Doc(symbol) abort
   endif
 
   let info = fireplace#info(a:symbol)
-  echo '-------------------------'
+  if len(info)
+    echo '-------------------------'
+  endif
   if has_key(info, 'ns') && has_key(info, 'name')
     echo info.ns . '/' . info.name
   elseif has_key(info, 'ns')
