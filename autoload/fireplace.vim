@@ -2024,29 +2024,31 @@ function! fireplace#info(symbol) abort
   return fireplace#query(cmd)
 endfunction
 
-function! fireplace#source(symbol) abort
-  let info = fireplace#info(a:symbol)
-
+function! s:source_from_info(info) abort
   let file = ''
-  if !empty(get(info, 'resource'))
-    let file = fireplace#findresource(info.resource)
+  if !empty(get(a:info, 'resource'))
+    let file = fireplace#findresource(a:info.resource)
   endif
 
   if empty(file)
-    if get(info, 'file', '') =~# '^file:'
-      let file = substitute(strpart(info.file, 5), '/', s:slash(), 'g')
-    elseif get(info, 'file', '') =~# '^jar:file:'
-      let zip = matchstr(info.file, '^jar:file:\zs.*\ze!')
-      let file = s:zipfile_url(zip, info.resource)
+    if get(a:info, 'file', '') =~# '^file:'
+      let file = substitute(strpart(a:info.file, 5), '/', s:slash(), 'g')
+    elseif get(a:info, 'file', '') =~# '^jar:file:'
+      let zip = matchstr(a:info.file, '^jar:file:\zs.*\ze!')
+      let file = s:zipfile_url(zip, get(a:info, 'resource', ''))
     else
-      let file = get(info, 'file', '')
+      let file = get(a:info, 'file', '')
     endif
   endif
 
-  if !empty(file) && !empty(get(info, 'line', ''))
-    return '+' . info.line . ' ' . fnameescape(file)
+  if !empty(file) && !empty(get(a:info, 'line', ''))
+    return '+' . a:info.line . ' ' . fnameescape(file)
   endif
   return ''
+endfunction
+
+function! fireplace#source(symbol) abort
+  return s:source_from_info(fireplace#info(a:symbol))
 endfunction
 
 function! fireplace#location(keyword) abort
@@ -2415,51 +2417,160 @@ function! s:inputlist(label, entries) abort
   endif
 endfunction
 
-function! s:Doc(symbol) abort
-  if s:repl_ns() ==# 'clojure.repl'
-    return s:Lookup(s:repl_ns(), 'doc', a:symbol)
+function! s:doc_lines(symbol, info) abort
+  let lines = []
+  if has_key(a:info, 'class')
+    let name = a:info.class . (has_key(a:info, 'member') ? '/' . a:info.member : '')
+  elseif has_key(a:info, 'ns') && has_key(a:info, 'name')
+    let name = a:info.ns . '/' . a:info.name
+  else
+    let name = get(a:info, 'ns', get(a:info, 'name', a:symbol))
+  endif
+  call add(lines, name)
+
+  if get(a:info, 'forms-str', 'nil') !=# 'nil'
+    call extend(lines, split(a:info['forms-str'], "\n"))
   endif
 
-  let info = fireplace#info(a:symbol)
-  if len(info)
-    echo '-------------------------'
-  endif
-  if has_key(info, 'ns') && has_key(info, 'name')
-    echo info.ns . '/' . info.name
-  elseif has_key(info, 'ns')
-    echo info.ns
-  elseif has_key(info, 'name')
-    echo info.name
+  if get(a:info, 'arglists-str', '') !=# ''
+    call extend(lines, split(a:info['arglists-str'], "\n"))
   endif
 
-  if get(info, 'forms-str', 'nil') !=# 'nil'
-    echo info['forms-str']
-  endif
-
-  if get(info, 'arglists-str', '') !=# ''
-    echo info['arglists-str']
-  endif
-
-  if get(info, 'special-form', 'nil') !=# 'nil'
-    echo "Special Form"
-
-    if has_key(info, 'url')
-      if !empty(get(info, 'url', ''))
-        echo '  Please see http://clojure.org/' . info.url
+  if get(a:info, 'special-form', 'nil') !=# 'nil'
+    call add(lines, 'Special Form')
+    if has_key(a:info, 'url')
+      if !empty(get(a:info, 'url', ''))
+        call add(lines, '  Please see http://clojure.org/' . a:info.url)
       else
-        echo '  Please see http://clojure.org/special_forms#' . info.name
+        call add(lines, '  Please see http://clojure.org/special_forms#' . a:info.name)
       endif
     endif
-
-  elseif get(info, 'macro', '') !=# ''
-    echo "Macro"
+  elseif get(a:info, 'macro', '') !=# ''
+    call add(lines, 'Macro')
   endif
 
-  if !empty(get(info, 'doc', ''))
-    echo '  ' . info.doc
+  if has_key(a:info, 'added')
+    call add(lines, 'Added in ' . a:info.added)
   endif
 
+  if has_key(a:info, 'deprecated')
+    call add(lines, 'Deprecated in ' . a:info.deprecated)
+  endif
+
+  if !empty(get(a:info, 'doc', ''))
+    call extend(lines, split('  ' . a:info.doc, "\n", 1))
+  endif
+
+  let see = get(a:info, 'see-also', [])
+  if !empty(see)
+    call extend(lines, ['', 'Also see: ' . join(see, ' ')])
+  endif
+
+  return lines
+endfunction
+
+function! s:doc_source() abort
+  let location = get(b:, 'fireplace_doc_location', '')
+  if empty(location)
+    echoerr 'Location unknown'
+  else
+    exe 'edit ' . location
+  endif
+endfunction
+
+let s:doc_hover_winid = 0
+
+function! s:doc_close_hover() abort
+  if s:doc_hover_winid
+    if exists('*nvim_win_is_valid') && nvim_win_is_valid(s:doc_hover_winid)
+      call nvim_win_close(s:doc_hover_winid, v:true)
+    elseif exists('*popup_close')
+      call popup_close(s:doc_hover_winid)
+    endif
+  endif
+  let s:doc_hover_winid = 0
+endfunction
+
+function! s:max_width(lines) abort
+  let width = 1
+  for line in a:lines
+    let width = max([width, strdisplaywidth(line)])
+  endfor
+  return width
+endfunction
+
+function! s:doc_hover_autocmds() abort
+  augroup fireplace_doc_hover
+    autocmd! * <buffer>
+    autocmd CursorMoved,CursorMovedI,InsertEnter,BufLeave <buffer> call <SID>doc_close_hover()
+  augroup END
+endfunction
+
+function! s:doc_hover(symbol, info) abort
+  let lines = s:doc_lines(a:symbol, a:info)
+  call s:doc_close_hover()
+  if exists('*nvim_open_win')
+    let bufnr = nvim_create_buf(v:false, v:true)
+    call nvim_buf_set_lines(bufnr, 0, -1, v:true, lines)
+    call nvim_buf_set_option(bufnr, 'buftype', 'nofile')
+    call nvim_buf_set_option(bufnr, 'bufhidden', 'wipe')
+    call nvim_buf_set_option(bufnr, 'filetype', 'fireplace-doc')
+    let width = min([s:max_width(lines), max([1, &columns - 4])])
+    let height = min([len(lines), max([1, &lines - 4])])
+    let s:doc_hover_winid = nvim_open_win(bufnr, v:false, {
+          \ 'relative': 'cursor',
+          \ 'row': 1,
+          \ 'col': 0,
+          \ 'width': width,
+          \ 'height': height,
+          \ 'style': 'minimal',
+          \ 'focusable': v:false,
+          \ 'zindex': 50})
+    call win_execute(s:doc_hover_winid, 'setlocal wrap linebreak filetype=fireplace-doc syntax=fireplace-doc')
+    call s:doc_hover_autocmds()
+  elseif exists('*popup_atcursor')
+    let s:doc_hover_winid = popup_atcursor(lines, {
+          \ 'moved': 'any',
+          \ 'maxwidth': max([1, &columns - 4]),
+          \ 'maxheight': max([1, &lines - 4]),
+          \ 'padding': [0, 1, 0, 1]})
+    call win_execute(s:doc_hover_winid, 'setlocal filetype=fireplace-doc syntax=fireplace-doc')
+  else
+    return s:doc_buffer(a:symbol, a:info)
+  endif
   return ''
+endfunction
+
+function! s:doc_buffer(symbol, info, ...) abort
+  let name = 'fireplace://doc/' . substitute(a:symbol, '[^[:alnum:]_./:$-]', '_', 'g')
+  let location = a:0 ? a:1 : ''
+  execute 'silent keepalt split ' . fnameescape(name)
+  setlocal buftype=nofile bufhidden=wipe noswapfile nobuflisted modifiable noreadonly
+  setlocal filetype=fireplace-doc syntax=fireplace-doc
+  silent %delete _
+  call setline(1, s:doc_lines(a:symbol, a:info))
+  let b:fireplace_doc_symbol = a:symbol
+  let b:fireplace_doc_location = location
+  nnoremap <silent><buffer> q :<C-U>quit<CR>
+  nnoremap <silent><buffer> gF :<C-U>call <SID>doc_source()<CR>
+  setlocal nomodifiable readonly
+  return ''
+endfunction
+
+function! s:Doc(symbol) abort
+  let info = fireplace#info(a:symbol)
+  if empty(info)
+    return ''
+  endif
+  return s:doc_buffer(a:symbol, info, s:source_from_info(info))
+endfunction
+
+function! s:DocHover(symbol) abort
+  let info = fireplace#info(a:symbol)
+  if empty(info)
+    return ''
+  endif
+  return s:doc_hover(a:symbol, info)
 endfunction
 
 function! s:K() abort
@@ -2470,21 +2581,23 @@ function! s:K() abort
   elseif word =~# '^:'
     return 'SpecForm '.word
   else
-    return 'Doc '.word
+    return 'DocHover '.word
   endif
 endfunction
 
 nnoremap <Plug>FireplaceK :<C-R>=<SID>K()<CR><CR>
+nnoremap <Plug>FireplaceDocHover :DocHover <C-R>=<SID>cword()<CR><CR>
 nnoremap <Plug>FireplaceSource :Source <C-R>=<SID>cword()<CR><CR>
 
 function! s:set_up_doc() abort
   command! -buffer -nargs=1 FindDoc :exe s:Lookup(s:repl_ns(), 'find-doc', printf('#"%s"', <q-args>))
   command! -buffer -bar -nargs=1 Javadoc :exe s:Lookup('clojure.java.javadoc', 'javadoc', <q-args>)
   command! -buffer -bar -nargs=1 -complete=customlist,fireplace#eval_complete Doc     :exe s:Doc(<q-args>)
+  command! -buffer -bar -nargs=1 -complete=customlist,fireplace#eval_complete DocHover :exe s:DocHover(<q-args>)
   command! -buffer -bar -nargs=1 -complete=customlist,fireplace#eval_complete Source  :exe s:Lookup(s:repl_ns(), 'source', <q-args>)
   command! -buffer -bar -nargs=1 -complete=customlist,fireplace#eval_complete Dlist   :exe s:Lookup(s:repl_ns(), 'source', <q-args>)
   command! -buffer -bar -nargs=1 -complete=customlist,fireplace#eval_complete Dsearch :exe s:Lookup(s:repl_ns(), 'source', <q-args>)
-  setlocal keywordprg=:Doc
+  setlocal keywordprg=:DocHover
 
   call s:map('n', 'K', '<Plug>FireplaceK', '<unique>')
   call s:map('n', '[D', '<Plug>FireplaceSource')

@@ -73,14 +73,26 @@ The :Piggieback command is softly deprecated wrapper for invoking Piggieback.
 DOCUMENTATION                                   *fireplace-documentation*
 
                                                 *fireplace-:Doc*
-:Doc {symbol}           Show the docs for the given symbol.
+:Doc {symbol}           Show the docs for the given symbol in a scratch
+                        buffer.  From there, q closes the buffer, and gF jumps
+                        to the source when available.
+
+                                                *fireplace-:DocHover*
+:DocHover {symbol}      Show the docs for the given symbol in a popup or
+                        floating window.
+
+                                                *<Plug>FireplaceDocHover*
+<Plug>FireplaceDocHover
+                        Show hover docs for the identifier under the cursor.
 
                                                 *fireplace-:Javadoc*
 :Javadoc {class}        Open the java docs for the given class in a browser.
 
                                                 *fireplace-K*
 K                       Look up the doc, javadoc, or spec-form for the
-                        identifier under the cursor.
+                        identifier under the cursor.  For docs, this opens the
+                        same hover as :DocHover.  The |'keywordprg'| is also
+                        set to :DocHover.
 
                                                 *fireplace-:FindDoc*
 :FindDoc {arg}          Wrapper around (clojure.repl/find-doc ...).

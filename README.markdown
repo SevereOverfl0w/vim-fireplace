@@ -91,7 +91,8 @@ understand code was a top priority.
 * `:Source`, `:Doc`, and `:FindDoc`, which map to the underlying
   `clojure.repl` macro (with tab complete, of course).
 
-* `K` is mapped to look up the symbol under the cursor with `doc`.
+* `K` is mapped to look up the symbol under the cursor with `doc` in a hover.
+  `:Doc` opens the same documentation in a scratch buffer.
 
 * `]D` is mapped to look up the symbol under the cursor with `source`.
 
